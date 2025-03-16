@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using UserActivities.Infrastructure;
 using UserActivities.UseCases.Dto;
 using UserActivities.UseCases.Services;
@@ -29,9 +30,24 @@ namespace UserActivities.WebApi
 
             app.MapPost("api/UserActivities", async ([FromBody] NewUserActivityDto newUserActivityDto, UserActivitiesService userActivitiesService) =>
             {
-                var addedActivity = await userActivitiesService.AddUserActivityAsync(newUserActivityDto);
+                try
+                {
+                    var addedActivity = await userActivitiesService.AddUserActivityAsync(newUserActivityDto);
 
-                return Results.Ok(addedActivity);
+                    return Results.Ok(addedActivity);
+                }
+                catch (DbUpdateConcurrencyException ex)
+                {
+                    return Results.Problem(title: "Concurrency conflict.", detail: ex.Message, statusCode: 401);
+                }
+                catch (DbUpdateException ex)
+                {
+                    return Results.Problem(title: "Database update error.", detail: ex.Message, statusCode: 500);
+                }
+                catch (OperationCanceledException ex)
+                {
+                    return Results.Problem(title: "Operation canceled.", detail: ex.Message, statusCode: 409);
+                }
             })
             .WithName("AddUserActivity")
             .WithOpenApi();
